@@ -21,7 +21,7 @@ class GradesImpl implements C.CourseObj, G.Grades {
   private constructor(course: C.CourseInfo, colIds: Set<string> =null,
 		      rawRowsMap: RawRowsMap = null) {
     //uncomment following line if no ts files shown in chrome debugger
-    //debugger 
+    debugger 
     this.course = course;
     this.#colIds = colIds;
     this.#rawRowsMap = rawRowsMap;
@@ -34,9 +34,31 @@ class GradesImpl implements C.CourseObj, G.Grades {
    *    BAD_ARG: colId is already in table or is not a score/info/id colId
    *    for course.
    */
-  addColumn(colId: string) : Result<G.Grades> {
-    return errResult('TODO', 'UNIMPLEMENTED') as Result<G.Grades>;
+addColumn(colId: string) : Result<G.Grades> {
+  const cols = this.course.cols;
+
+  const colProp = cols[colId];
+  if (!colProp || colProp.kind === 'calc' || this.#colIds.has(colId)) {
+    return errResult(`'${colId}' is not a valid column to add`, 'BAD_ARG');
   }
+
+  let newRawRowsMap: RawRowsMap = {};
+  for (const [rowId, rawRow] of Object.entries(this.#rawRowsMap)) {
+    newRawRowsMap[rowId] = {
+      ...rawRow,
+      ...{ [colId]: '' },
+    };
+  }
+
+  newRawRowsMap = Object.fromEntries(Object.keys(newRawRowsMap)
+    .map(key => {
+      const sortedEntries = Object.entries(newRawRowsMap[key])
+        .sort(([colId1], [colId2]) => cols[colId1].colIndex - cols[colId2].colIndex);
+      return [key, Object.fromEntries(sortedEntries)];
+    }));
+
+  return okResult(new GradesImpl(this.course, new Set([...this.#colIds, colId]), newRawRowsMap));
+}
 
   /** Apply patches to table, returning the patched table.
    *  Note that this Grades object is not changed.
@@ -44,14 +66,56 @@ class GradesImpl implements C.CourseObj, G.Grades {
    *    BAD_ARG: A patch rowId or colId is not in table.
    *    RANGE: Patch data is out-of-range.
    */
-  patch(patches: G.Patches): Result<G.Grades> {
-    return errResult('TODO', 'UNIMPLEMENTED') as Result<G.Grades>;
+patch(patches: G.Patches): Result<G.Grades> {
+  const colIds = this.#colIds;
+  const rowIds = Object.keys(patches);
+
+  // check for valid column ids and range constraints
+  for (const rowId of rowIds) {
+    if (!(rowId in this.#rawRowsMap)) {
+      return new ErrResult().addError(`Bad rowId: ${rowId}`, 'BAD_ARG');
+    }
+
+    const patchRow = patches[rowId];
+    const existingRow = this.#rawRowsMap[rowId];
+    const patchColIds = Object.keys(patchRow);
+
+    for (const colId of patchColIds) {
+      if (!colIds.has(colId)) {
+        return new ErrResult().addError(`Unknown column id ${colId}`, 'BAD_ARG');
+      }
+
+      if (colId !== this.course.rowIdColId && colId !== this.course.id) {
+        const colProp = this.course.cols[colId];
+        const patchValue = patchRow[colId];
+        const existingValue = existingRow[colId];
+
+        if (colProp.kind === 'score') {
+          const { min, max } = colProp;
+          if (typeof patchValue !== 'number' || patchValue < min || patchValue > max) {
+            return new ErrResult().addError(`Invalid patch value for ${colId} on row ${rowId}`, 'RANGE');
+          }
+        }
+        if (colProp.kind === 'calc') {
+          return new ErrResult().addError(`Attempt to patch calculated column ${colId} on row ${rowId}`, 'BAD_ARG');
+        }
+      }
+    }
   }
 
-  /** Return full table containing all computed values */
-  getFullTable(): G.FullTable {
-    return null; //TODO
+  // apply the patches
+  let rawRowsMap = { ...this.#rawRowsMap };
+  for (const rowId of rowIds) {
+    rawRowsMap[rowId] = { ...rawRowsMap[rowId], ...patches[rowId] };
   }
+
+  return okResult(new GradesImpl(this.course, colIds, rawRowsMap));
+}
+
+  /** Return full table containing all computed values */
+getFullTable(): G.FullTable {
+  //don't know how to do keep getting errors
+}
 
   /** Return a raw table containing the raw data.  Note that all
    *  columns in each retrieved row must be in the same order

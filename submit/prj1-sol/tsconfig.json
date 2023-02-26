@@ -17,5 +17,6 @@
     "noImplicitAny": true,
     "declaration": true,
     "declarationMap": true,
+    "skipLibCheck": true,
   },
 }
