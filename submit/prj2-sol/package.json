@@ -4,9 +4,32 @@
   "description": "Name:\t\tXXX B-Number:\tXXX Email:\t\tXXX",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "clean": "shx rm -rf dist",
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "pretest": "npm run build",
+    "test": "mocha --reporter-options maxDiffSize=128000 dist/test",
+    "predebug-test": "npm run build",
+    "debug-test": "mocha --inspect-brk dist/test"
   },
+  "type": "module",
   "author": "",
   "license": "ISC",
-  "keywords": []
+  "keywords": [],
+  "devDependencies": {
+    "@types/chai": "^4.3.4",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "^18.15.3",
+    "chai": "^4.3.7",
+    "mocha": "^10.2.0",
+    "mongodb": "^5.1.0",
+    "mongodb-memory-server": "^8.11.5",
+    "shx": "^0.3.4",
+    "typescript": "^5.0.2"
+  },
+  "dependencies": {
+    "cs544-js-utils": "https://sunybing:sunybing@zdu.binghamton.edu/cs544/lib/cs544-js-utils-latest.tgz",
+    "cs544-node-utils": "https://sunybing:sunybing@zdu.binghamton.edu/cs544/lib/cs544-node-utils-latest.tgz",
+    "cs544-prj1-sol": "https://sunybing:sunybing@zdu.binghamton.edu/cs544/lib/cs544-prj1-sol-latest.tgz"
+  }
 }
