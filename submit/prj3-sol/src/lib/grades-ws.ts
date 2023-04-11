@@ -33,12 +33,134 @@ function setupRoutes(app: Express.Application) {
   app.use(Express.json());
 
   //TODO: add routes
-
+  app.get(`${base}/:courseId`, doGetCourseGrades(app));
+  app.get(`${base}/:courseId/:rowId`, doGetCourseGradesRow(app));
+  app.post(`${base}/:courseId`, doLoadCourseGrades(app));
+  app.patch(`${base}/:courseId`, doPatchCourseGrades(app));
   //must be last
   app.use(do404(app));
   app.use(doErrors(app));
 }
 // TODO: add handlers
+
+
+function doGetCourseGrades(app: Express.Application) {
+  return async (req: Express.Request, res: Express.Response) => {
+    const { courseId } = req.params;
+    const isFull = (req.query.full ?? '') === 'true';
+
+    try {
+      const gradesResult = await app.locals.model.getGrades(courseId);
+
+      if (gradesResult.isOk) {
+        recGrades(req, res, gradesResult.val, isFull);
+      } else {
+        throw gradesResult;
+      }
+    } catch (err) {
+      const mapped = mapResultErrors(err);
+      res.status(mapped.status).json(mapped);
+    }
+  };
+}
+
+function recGrades(req: Express.Request, res: Express.Response, grades: G.Grades, isFull: boolean)
+{  
+  if(isFull){
+    res.json(selfResult(req, grades.getFullTable()));
+  }
+  else{
+    res.json(selfResult(req, grades.getRawTable()));
+  }
+}
+
+function doGetCourseGradesRow(app: Express.Application) {
+  return async (req: Express.Request, res: Express.Response) => {
+    const { courseId, rowId } = req.params;
+    const isFull = (req.query.full ?? '') === 'true';
+
+    try {
+      const gradesResult = await app.locals.model.getGrades(courseId);
+
+      if (gradesResult.isOk) {
+        const grades = gradesResult.val;
+        let rowResult;
+
+        if (isFull) {
+          rowResult = grades.getFullTableRow(rowId);
+        } else {
+          rowResult = grades.getRawTableRow(rowId);
+        }
+
+        if (rowResult.isOk) {
+          res.json(selfResult(req, rowResult.val));
+        } else {
+          throw rowResult;
+        }
+      } else {
+        throw gradesResult;
+      }
+    } catch (err) {
+      const mapped = mapResultErrors(err);
+      res.status(mapped.status).json(mapped);
+    }
+  };
+}
+
+function doLoadCourseGrades(app: Express.Application) {
+  return async (req: Express.Request, res: Express.Response) => {
+    const courseId = req.params.courseId;
+    const isFull = (req.query.full ?? '') === 'true';
+
+    try {
+      const gradesResult = await app.locals.model.load(courseId, req.body);
+
+      if (gradesResult.isOk) {
+        const grades = gradesResult.val;
+        if (isFull) {
+          res.json(selfResult(req, grades.getFullTable()));
+        } else {
+          res.json(selfResult(req, grades.getRawTable()));
+        }
+      } else {
+        throw gradesResult;
+      }
+    } catch (err) {
+      const mapped = mapResultErrors(err);
+      res.status(mapped.status).json(mapped);
+    }
+  };
+}
+
+function doPatchCourseGrades(app: Express.Application) {
+  return async (req: Express.Request, res: Express.Response) => {
+    const courseId = req.params.courseId;
+    const isFull = (req.query.full ?? '') === 'true';
+    try{
+      const gradesResult = await app.locals.model.patch(courseId, req.body);
+      if(gradesResult.isOk){
+        const grades = gradesResult.val;
+        if(isFull){
+          res.json(selfResult(req, grades.getFullTable()));
+        } else{
+          res.json(selfResult(req, grades.getRawTable()));
+        }
+      } else{
+        throw gradesResult;
+      }
+    } catch(err){
+      const mapped = mapResultErrors(err);
+      res.status(mapped.status).json(mapped);
+    }
+  };
+}
+
+
+
+
+
+
+
 
 // A typical handler can be produced by running a function like
 // the following:
